@@ -11,19 +11,44 @@ Globals:
     Timeout: 3
 
 Resources:
+
+  MyAuthAPI:
+      Type: AWS::Serverless::Api
+      Properties:
+        StageName: Prod
+        Auth:
+          DefaultAuthorizer: LambdaTokenAuthorizer
+          Authorizers:
+            LambdaTokenAuthorizer:
+              FunctionArn: !GetAtt MyCustomAuthorizer.Arn
+              Identity:
+                Header: authorizationToken
+
   HelloWorldFunction:
     Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
     Properties:
       CodeUri: hello_world/
       Handler: app.lambda_handler
-      Runtime: python3.8
+      Runtime: python3.7
+      FunctionName: HelloWorldFunction
       Role: arn:aws:iam::743718239935:role/CP-Role-ExecuteLamdbaFunctions
       Events:
         HelloWorld:
           Type: Api # More info about API Event Source: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#api
           Properties:
+            RestApiId: !Ref MyAuthAPI
             Path: /hello
             Method: get
+
+  MyCustomAuthorizer:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: custom_authorizer/
+      Handler: auth.authorizer
+      Runtime: python3.7
+      FunctionName: MyCustomAuthorizer
+      Role: arn:aws:iam::743718239935:role/CP-Role-ExecuteLamdbaFunctions
+
 
 Outputs:
   # ServerlessRestApi is an implicit API created out of Events key under Serverless::Function
@@ -31,10 +56,18 @@ Outputs:
   # https://github.com/awslabs/serverless-application-model/blob/master/docs/internals/generated_resources.rst#api
   HelloWorldApi:
     Description: "API Gateway endpoint URL for Prod stage for Hello World function"
-    Value: !Sub "https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
+    Value: !Sub "https://${MyAuthAPI}.execute-api.${AWS::Region}.amazonaws.com/Prod/hello/"
   HelloWorldFunction:
     Description: "Hello World Lambda Function ARN"
     Value: !GetAtt HelloWorldFunction.Arn
+  
+  MyCustomAuthorizer:
+    Description: "Hello World Lambda Function ARN"
+    Value: !GetAtt MyCustomAuthorizer.Arn
+  
+  ApiId:
+    Description: "API ID"
+    Value: !Ref MyAuthAPI
   # HelloWorldFunctionIamRole:
   #   Description: "Implicit IAM Role created for Hello World function"
   #   Value: !GetAtt HelloWorldFunctionRole.Arn
